@@ -52,6 +52,7 @@ Grafana:
 - Default username and password are both `admin`.
 - https://grafana.com/tutorials/grafana-fundamentals/
 - https://grafana.com/docs/grafana/latest/getting-started/build-first-dashboard/
+- https://grafana.com/docs/grafana/latest/setup-grafana/configure-docker/#run-grafana-container-with-persistent-storage-recommended
 
 Prometheus:
 
