@@ -28,6 +28,14 @@ google-dns-1 (8.8.8.8): 111.99ms, google-dns-2 (8.8.4.4): 112.96ms
 google-dns-1 (8.8.8.8): 112.76ms, google-dns-2 (8.8.4.4): 113.86ms
 ```
 
+In Linux/MacOS environments, ICMP packets can only be sent by processes with root
+privileges (this is a requirement of the `multi-ping` package, which `aping` uses).
+In those cases, the recommended invocation command would be:
+
+```shell
+sudo -E "$(which aping)" "google-dns-1=8.8.8.8" "google-dns-2=8.8.4.4"
+```
+
 ## Contributing
 
 ### Local development

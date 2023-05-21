@@ -1,32 +1,15 @@
 import argparse
+import sys
 import time
 from dataclasses import dataclass
 from typing import Dict, List, NoReturn, Optional, Union
 
-from multiping import MultiPing
-from prometheus_client import Gauge, start_http_server
+from prometheus_client import start_http_server
+
+from .ping import ping
 
 DEFAULT_PING_TIMEOUT_SECONDS = 2
 DEFAULT_PROMETHEUS_METRICS_SERVER_PORT = 8000
-
-PING_LATENCY_SECONDS = Gauge("ping_latency_seconds", "Latency (gauge)", ["target"])
-
-
-def ping(targets: List[str], timeout_seconds: int = 1) -> Dict[str, float]:
-    mp = MultiPing(targets)
-    resolved_targets = mp._dest_addrs
-    target_by_resolved_target = dict(zip(resolved_targets, targets))
-
-    mp.send()
-    responses, no_responses = mp.receive(timeout_seconds)
-
-    res = {
-        target_by_resolved_target[resolved_target]: response_time_seconds
-        for resolved_target, response_time_seconds in responses.items()
-    }
-    res.update({target_by_resolved_target[resolved_target]: None for resolved_target in no_responses})
-
-    return res
 
 
 def format_response_time(response_time: Union[float, None], timeout: int) -> str:
@@ -72,7 +55,17 @@ def parse_args(cli_args: Optional[List[str]] = None) -> Input:
 
     targets = {}
     for s in args.targets:
-        name, address = s.split("=", 1)
+        try:
+            name, address = s.split("=", 1)
+        except ValueError:
+            print(
+                (
+                    f"ERROR: Invalid target: {s!r}. "
+                    "Targets must be given in the form 'name=ip_address' (e.g., 'google-dns=8.8.8.8')"
+                ),
+                file=sys.stderr,
+            )
+            exit(1)
         targets[name.strip()] = address.strip()
 
     return Input(targets, args.timeout, args.port)
@@ -84,22 +77,12 @@ def main() -> NoReturn:
     start_http_server(args.port)
     print(f"Prometheus metrics server available at http://127.0.0.1:{args.port}", flush=True)
 
-    name_by_target = {target: name for name, target in args.targets.items()}
-    targets = sorted(args.targets.values())
-
     while True:
-        res = ping(targets, timeout_seconds=args.timeout)
-        res_by_full_name = {
-            f"{name_by_target[target]} ({target})": response_time for target, response_time in res.items()
-        }
-
-        for full_name, response_time in res_by_full_name.items():
-            value = response_time or args.timeout
-            PING_LATENCY_SECONDS.labels(full_name).set(value)
+        response_time_by_full_name = ping(args.targets, args.timeout)
 
         details = [
-            f"{full_name}: {format_response_time(res_by_full_name[full_name], args.timeout)}"
-            for full_name in sorted(res_by_full_name.keys())
+            f"{full_name}: {format_response_time(response_time_by_full_name[full_name], args.timeout)}"
+            for full_name in sorted(response_time_by_full_name.keys())
         ]
         print(", ".join(details), flush=True)
 
