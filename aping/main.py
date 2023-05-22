@@ -6,7 +6,7 @@ from typing import Dict, List, NoReturn, Optional, Union
 
 from prometheus_client import start_http_server
 
-from .ping import ping
+from .ping import PingError, ping
 
 DEFAULT_PING_TIMEOUT_SECONDS = 2
 DEFAULT_PROMETHEUS_METRICS_SERVER_PORT = 8000
@@ -78,13 +78,16 @@ def main() -> NoReturn:
     print(f"Prometheus metrics server available at http://127.0.0.1:{args.port}", flush=True)
 
     while True:
-        response_time_by_full_name = ping(args.targets, args.timeout)
-
-        details = [
-            f"{full_name}: {format_response_time(response_time_by_full_name[full_name], args.timeout)}"
-            for full_name in sorted(response_time_by_full_name.keys())
-        ]
-        print(", ".join(details), flush=True)
+        try:
+            response_time_by_full_name = ping(args.targets, args.timeout)
+        except PingError as e:
+            print(f"ERROR: {e}", file=sys.stderr, flush=True)
+        else:
+            details = [
+                f"{full_name}: {format_response_time(response_time_by_full_name[full_name], args.timeout)}"
+                for full_name in sorted(response_time_by_full_name.keys())
+            ]
+            print(", ".join(details), flush=True)
 
         time.sleep(1)
 
